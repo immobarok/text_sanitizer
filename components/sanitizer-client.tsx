@@ -109,7 +109,7 @@ export function SanitizerClient() {
     <div className="space-y-6">
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Input Section */}
-        <Card className="border-2 shadow-sm">
+        <Card className="border shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -126,7 +126,7 @@ export function SanitizerClient() {
           <CardContent className="space-y-4">
             <Textarea
               placeholder="Paste here ..."
-              className="min-h-[600px] resize-none font-mono text-sm leading-relaxed"
+              className="min-h-[500px] resize-none font-mono text-sm leading-relaxed"
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
@@ -162,7 +162,7 @@ export function SanitizerClient() {
                   <DialogHeader>
                     <DialogTitle>Add Local Sanitization Word</DialogTitle>
                     <DialogDescription>
-                      This word will only be sanitized in your current browser. It will not be saved to our database.
+                      This word will only be sanitized in your current browser
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 pt-4">
@@ -206,7 +206,7 @@ export function SanitizerClient() {
         </Card>
 
         {/* Output Section */}
-        <Card className="border-2 shadow-sm bg-muted/5">
+        <Card className="shadow-sm bg-muted/5">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
               <span className="bg-green-500/10 p-1.5 rounded-md">
@@ -220,7 +220,7 @@ export function SanitizerClient() {
               <Textarea
                 readOnly
                 placeholder="Sanitized text..."
-                className="min-h-[600px] resize-none font-mono text-sm leading-relaxed bg-white"
+                className="min-h-[500px] resize-none font-mono text-sm leading-relaxed bg-white"
                 value={output}
               />
               {output && (
