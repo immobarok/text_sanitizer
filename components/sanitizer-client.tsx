@@ -589,14 +589,14 @@ export function SanitizerClient() {
 
             <Separator orientation="vertical" className="h-8 mx-1 opacity-20" />
 
-            <Button 
+            {/* <Button 
               variant="outline"
               className="h-10 px-6 rounded-xl font-black uppercase tracking-wider text-[10px] border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-all active:scale-95 group"
               onClick={handleAiRefine}
               disabled={!activeTab.content || isAiLoading}
             >
               <Wand2 className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" /> AI Refine
-            </Button>
+            </Button> */}
 
             <Button 
               className="h-10 px-8 rounded-xl font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-primary/10 transition-all active:scale-95"
