@@ -14,7 +14,6 @@ export function Navigation() {
 
   const routes = [
     { href: "/", label: "Sanitizer", icon: FileText },
-    { href: "/words", label: "Word Manager", icon: Settings },
   ]
 
   return (

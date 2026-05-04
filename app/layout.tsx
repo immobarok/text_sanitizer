@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
           <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
             <Navigation />
             <main className="container mx-auto px-4 py-8 max-w-8xl">

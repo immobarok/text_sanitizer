@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
 
     const bannedWords = await prisma.bannedWord.findMany({
       where: { isActive: true },
-      select: { word: true },
+      select: { word: true, replacement: true },
     })
 
-    const wordList = bannedWords.map((w: any) => w.word)
+    const wordList = bannedWords.map((w: any) => ({ word: w.word, replacement: w.replacement }))
     const result = sanitizeText(text, wordList, options)
 
     // Save log (truncate for storage)

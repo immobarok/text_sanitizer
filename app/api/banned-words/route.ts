@@ -28,7 +28,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { words, category = "general", severity = "MEDIUM" } = body
+    const { words, category = "general", severity = "MEDIUM", replacement = "****", password } = body
+
+    // Simple password check for database additions
+    if (password !== process.env.ADMIN_PASSWORD) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
 
     if (!words || !Array.isArray(words) || words.length === 0) {
       return NextResponse.json(
@@ -41,9 +49,10 @@ export async function POST(request: NextRequest) {
       words.map((word: string) =>
         prisma.bannedWord.upsert({
           where: { word: word.toLowerCase().trim() },
-          update: { category, severity },
+          update: { category, severity, replacement },
           create: {
             word: word.toLowerCase().trim(),
+            replacement,
             category,
             severity,
           },
