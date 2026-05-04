@@ -3,7 +3,6 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { Navigation } from "@/components/navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -21,12 +20,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8 max-w-8xl">
+          <div className="min-h-screen bg-[#f1f3f4] dark:bg-[#020202] flex items-center justify-center p-4 transition-colors duration-300">
+            <main className="w-full max-w-[1400px]">
               {children}
             </main>
-          </div>
+          </div>  
           <Toaster />
         </ThemeProvider>
       </body>
