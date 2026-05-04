@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
-import { Shield, Copy, RotateCcw, AlertTriangle, CheckCircle, Plus, X, Search, FileText, Sun, Moon, Hash, Type, AlignLeft, MousePointer2 } from "lucide-react"
+import { Shield, Copy, RotateCcw, AlertTriangle, CheckCircle, Plus, X, Search, FileText, Sun, Moon, Hash, Type, AlignLeft, MousePointer2, Sparkles, Wand2, Loader2, Clock, ChevronRight, History } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
@@ -14,11 +14,19 @@ import { cn } from "@/lib/utils"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import { Separator } from "@/components/ui/separator"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 interface Tab {
   id: string
   name: string
   content: string
+}
+
+interface HistoryItem {
+  id: string
+  timestamp: Date
+  content: string
+  type: "ai" | "manual"
 }
 
 export function SanitizerClient() {
@@ -31,10 +39,22 @@ export function SanitizerClient() {
   const [quickWord, setQuickWord] = useState("")
   const [quickReplacement, setQuickReplacement] = useState("")
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false)
+  const [isAiEnabled, setIsAiEnabled] = useState(true)
+  const [isAiLoading, setIsAiLoading] = useState(false)
+  
+  // Suggestion States
+  const [multiSuggestions, setMultiSuggestions] = useState<string[]>([])
+  const [inlineSuffix, setInlineSuffix] = useState("")
+  const [inlineReplacement, setInlineReplacement] = useState("")
+  const [history, setHistory] = useState<HistoryItem[]>([])
+  const [acceptedSuggestions, setAcceptedSuggestions] = useState<string[]>([])
+  
   const { toast } = useToast()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const sourceTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => setMounted(true), [])
 
@@ -65,6 +85,7 @@ export function SanitizerClient() {
 
     const savedLocal = localStorage.getItem("local_sanitizer_rules")
     if (savedLocal) setLocalRules(JSON.parse(savedLocal))
+    
     const savedTabs = localStorage.getItem("sanitizer_tabs")
     if (savedTabs) {
       try {
@@ -75,12 +96,164 @@ export function SanitizerClient() {
         }
       } catch (e) {}
     }
+
+    const savedHistory = localStorage.getItem("sanitizer_history")
+    if (savedHistory) setHistory(JSON.parse(savedHistory))
+
+    const savedAccepted = localStorage.getItem("accepted_suggestions")
+    if (savedAccepted) setAcceptedSuggestions(JSON.parse(savedAccepted))
+
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [])
 
   useEffect(() => {
     localStorage.setItem("sanitizer_tabs", JSON.stringify(tabs))
   }, [tabs])
+
+  useEffect(() => {
+    localStorage.setItem("sanitizer_history", JSON.stringify(history))
+  }, [history])
+
+  useEffect(() => {
+    localStorage.setItem("accepted_suggestions", JSON.stringify(acceptedSuggestions))
+  }, [acceptedSuggestions])
+
+  // Multi-Suggestion Logic
+  useEffect(() => {
+    if (!isAiEnabled || !activeTab.content) {
+      setMultiSuggestions([])
+      setInlineSuffix("")
+      return
+    }
+
+    const cursor = sourceTextareaRef.current?.selectionStart || 0
+    const textBefore = activeTab.content.substring(0, cursor)
+    const match = textBefore.match(/(\w+)$/)
+    
+    if (match) {
+      const currentWord = match[1].toLowerCase()
+      if (currentWord.length >= 2) {
+        const allRules = [...dbRules, ...localRules]
+        
+        // Check for Inline Suggestion
+        const matchingRule = allRules.find(r => r.word.toLowerCase().startsWith(currentWord))
+        if (matchingRule) {
+          const w = matchingRule.word
+          const parts = []
+          for (let i = 0; i < w.length; i += 2) {
+            parts.push(w.substring(i, i + 2))
+          }
+          const target = parts.join('-')
+          
+          setInlineReplacement(target)
+          
+          if (currentWord === matchingRule.word.toLowerCase()) {
+            setInlineSuffix(` → ${target}`)
+          } else {
+            // e.g. typed "goo", rule is "google". Suffix is "gle"
+            setInlineSuffix(matchingRule.word.substring(currentWord.length))
+          }
+        } else {
+          setInlineSuffix("")
+          setInlineReplacement("")
+        }
+
+        // Top Tray Suggestions
+        const allWords = allRules.map(r => r.word.toLowerCase())
+        const matches = allWords.filter(w => w.startsWith(currentWord) && w !== currentWord)
+        setMultiSuggestions(matches.slice(0, 3))
+        return
+      }
+    }
+    setMultiSuggestions([])
+    setInlineSuffix("")
+    setInlineReplacement("")
+  }, [activeTab.content, isAiEnabled, dbRules, localRules])
+
+  const acceptInlineSuggestion = () => {
+    const textarea = sourceTextareaRef.current
+    if (!textarea || !inlineReplacement) return
+    
+    const cursor = textarea.selectionStart
+    const textBefore = activeTab.content.substring(0, cursor)
+    const match = textBefore.match(/(\w+)$/)
+    if (!match) return
+    
+    const start = cursor - match[1].length
+    const after = activeTab.content.substring(cursor)
+    
+    const newContent = activeTab.content.substring(0, start) + inlineReplacement + after
+    updateActiveContent(newContent)
+    
+    setInlineSuffix("")
+    setInlineReplacement("")
+    
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + inlineReplacement.length, start + inlineReplacement.length)
+    }, 10)
+  }
+
+  const acceptSuggestion = (predicted: string) => {
+    const textarea = sourceTextareaRef.current
+    if (!textarea) return
+    
+    const cursor = textarea.selectionStart
+    const textBefore = activeTab.content.substring(0, cursor)
+    const match = textBefore.match(/(\w+)$/)
+    if (!match) return
+    
+    const currentWordLength = match[1].length
+    const start = cursor - currentWordLength
+    const after = activeTab.content.substring(cursor)
+    
+    const newContent = activeTab.content.substring(0, start) + predicted + after
+    updateActiveContent(newContent)
+    
+    // Add to history
+    setAcceptedSuggestions(prev => [predicted, ...prev.filter(w => w !== predicted)].slice(0, 10))
+    setMultiSuggestions([])
+    
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + predicted.length, start + predicted.length)
+    }, 10)
+  }
+
+  const handleAiRefine = async () => {
+    if (!activeTab.content) return
+    setIsAiLoading(true)
+    try {
+      const res = await fetch("/api/ai-refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: activeTab.content,
+          rules: [...dbRules, ...localRules]
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        // Save current to history before updating
+        const historyItem: HistoryItem = {
+          id: Math.random().toString(36).substring(7),
+          timestamp: new Date(),
+          content: activeTab.content,
+          type: "manual"
+        }
+        setHistory(prev => [historyItem, ...prev].slice(0, 20))
+        
+        updateActiveContent(data.data)
+        toast({ title: "AI Refinement Applied" })
+      } else {
+        toast({ title: "AI Refine Failed", description: data.error, variant: "destructive" })
+      }
+    } catch (e) {
+      toast({ title: "AI Refine Error", variant: "destructive" })
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
 
   const addTab = () => {
     const newId = Math.random().toString(36).substring(7)
@@ -106,7 +279,6 @@ export function SanitizerClient() {
   const { output, found } = useMemo(() => {
     const allRules = [...dbRules, ...localRules]
     const result = sanitizeText(activeTab.content, allRules, { caseSensitive: false, wholeWord: false })
-    // Removed the .replace(/\s+/g, '') to allow normal spacing and formatting
     return { output: result.sanitized, found: result.found }
   }, [activeTab.content, dbRules, localRules])
 
@@ -130,10 +302,7 @@ export function SanitizerClient() {
 
   const handleQuickAdd = () => {
     if (!quickWord.trim()) return
-    const newRule = { 
-      word: quickWord.toLowerCase().trim(), 
-      replacement: quickReplacement.trim() 
-    }
+    const newRule = { word: quickWord.toLowerCase().trim(), replacement: quickReplacement.trim() }
     const updated = [...localRules, newRule]
     setLocalRules(updated)
     localStorage.setItem("local_sanitizer_rules", JSON.stringify(updated))
@@ -148,23 +317,48 @@ export function SanitizerClient() {
       <div className="flex flex-col h-[calc(100vh-40px)] border rounded-2xl overflow-hidden bg-background shadow-2xl relative">
         
         {/* Header Block */}
-        <div className="bg-[#f8f9fa] dark:bg-[#0a0a0a] border-b relative z-20">
+        <div className="bg-[#f8f9fa] dark:bg-[#0a0a0a] border-b relative z-30">
           <div className="flex items-center justify-between px-6 py-4">
             <div className="flex items-center gap-4">
               <div className="p-2 rounded-xl border bg-white dark:bg-zinc-900">
                 <Image src="/logo.png" alt="Logo" width={28} height={28} className="rounded-md" />
               </div>
               <div>
-                <h1 className="text-lg font-black tracking-tight text-foreground leading-none">
-                  TEXT<span className="text-primary">SANITIZER</span>
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-black tracking-tight text-foreground leading-none">
+                    TEXT<span className="text-primary">SANITIZER</span>
+                  </h1>
+                  <Badge variant="outline" className="text-[8px] font-black tracking-widest h-4 px-1.5 border-primary/20 text-primary">PREDICTIVE</Badge>
+                </div>
                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest mt-1.5">
-                  Professional Suite
+                  Intelligence Suite
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
+
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setIsAiEnabled(!isAiEnabled)
+                      toast({ title: `Predictive Dictionary ${!isAiEnabled ? 'Enabled' : 'Disabled'}` })
+                    }}
+                    className={cn(
+                      "rounded-xl h-10 w-10 border shadow-sm transition-all duration-300",
+                      isAiEnabled ? "bg-primary/5 border-primary/20 text-primary" : "bg-white dark:bg-zinc-900"
+                    )}
+                  >
+                    <Sparkles className={cn("h-4 w-4", isAiEnabled && "fill-primary/10")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p className="text-[10px] font-bold">Toggle Suggestions</p></TooltipContent>
+              </Tooltip>
+
               <div className={cn(
                 "flex items-center bg-white dark:bg-zinc-900 border rounded-xl px-3 h-10 transition-all duration-300 overflow-hidden",
                 isSearchVisible ? "w-[240px] opacity-100 mr-2 shadow-sm" : "w-0 opacity-0 border-none p-0 mr-0"
@@ -247,30 +441,82 @@ export function SanitizerClient() {
           </div>
         </div>
 
+
+
         {/* Workspace */}
-        <div className="flex-1 flex overflow-hidden divide-x dark:divide-zinc-800">
-          <div className="flex-1 flex flex-col relative">
+        <div className="flex-1 flex overflow-hidden divide-x dark:divide-zinc-800 relative">
+          <div className="flex-1 flex flex-col relative group">
+            
+            {/* Inline Ghost Text Overlay */}
+            {inlineSuffix && (
+              <div 
+                className="absolute inset-0 pointer-events-none p-10 !text-lg font-medium leading-relaxed text-transparent whitespace-pre-wrap select-none z-20 overflow-hidden"
+                style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" }}
+              >
+                {activeTab.content.substring(0, sourceTextareaRef.current?.selectionStart || activeTab.content.length)}
+                <span className="text-muted-foreground/50 italic">
+                  {inlineSuffix}
+                </span>
+                <span className="ml-2 text-[8px] bg-muted/50 text-muted-foreground px-1.5 py-0.5 rounded inline-flex items-center font-bold align-middle uppercase tracking-tighter border border-border/50">TAB</span>
+              </div>
+            )}
+
             <Textarea
-              placeholder="Source content..."
+              ref={sourceTextareaRef}
+              placeholder="Type your content here..."
               className="flex-1 resize-none border-0 rounded-none focus-visible:ring-0 p-10 !text-lg font-medium leading-relaxed bg-background text-foreground/90 selection:bg-primary/20 tracking-tight"
               style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" }}
               value={activeTab.content}
               onChange={(e) => updateActiveContent(e.target.value)}
+              onScroll={(e) => {
+                const overlay = e.currentTarget.previousElementSibling as HTMLDivElement;
+                if (overlay && inlineSuffix) {
+                  overlay.scrollTop = e.currentTarget.scrollTop;
+                  overlay.scrollLeft = e.currentTarget.scrollLeft;
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Tab") {
+                  if (inlineSuffix) {
+                    e.preventDefault()
+                    acceptInlineSuggestion()
+                  } else if (multiSuggestions.length > 0) {
+                    e.preventDefault()
+                    acceptSuggestion(multiSuggestions[0])
+                  }
+                }
+              }}
             />
           </div>
           <div className="flex-1 flex flex-col relative">
             <Textarea
               readOnly
-              placeholder="Clean output..."
-              className="flex-1 resize-none border-0 rounded-none focus-visible:ring-0 p-10 !text-lg font-medium bg-background text-foreground/90 selection:bg-primary/20 tracking-tight"
+              placeholder="Real-time sanitization will appear here..."
+              className="flex-1 resize-none border-0 rounded-none focus-visible:ring-0 p-10 !text-lg font-medium leading-relaxed bg-background text-foreground/90 selection:bg-primary/20 tracking-tight"
               style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace" }}
               value={output}
             />
           </div>
         </div>
 
+        {/* AI Loading Overlay */}
+        {isAiLoading && (
+          <div className="absolute inset-0 z-50 bg-background/60 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-500">
+            <div className="flex flex-col items-center gap-4">
+              <div className="relative">
+                <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                <Wand2 className="h-4 w-4 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              </div>
+              <div className="flex flex-col items-center">
+                <p className="text-xs font-black uppercase tracking-[3px] text-primary animate-pulse">AI Refining Text</p>
+                <p className="text-[10px] text-muted-foreground font-bold mt-1">Improving tone & sanitization...</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Bottom Status Bar */}
-        <div className="bg-[#fcfcfc] dark:bg-[#0a0a0a] border-t px-6 py-3 flex items-center justify-between z-20">
+        <div className="bg-[#fcfcfc] dark:bg-[#0a0a0a] border-t px-6 py-3 flex items-center justify-between z-30">
           
           <div className="flex items-center gap-6">
             <div className="flex flex-col">
@@ -341,6 +587,17 @@ export function SanitizerClient() {
               </DialogContent>
             </Dialog>
 
+            <Separator orientation="vertical" className="h-8 mx-1 opacity-20" />
+
+            <Button 
+              variant="outline"
+              className="h-10 px-6 rounded-xl font-black uppercase tracking-wider text-[10px] border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 transition-all active:scale-95 group"
+              onClick={handleAiRefine}
+              disabled={!activeTab.content || isAiLoading}
+            >
+              <Wand2 className="h-4 w-4 mr-2 group-hover:rotate-12 transition-transform" /> AI Refine
+            </Button>
+
             <Button 
               className="h-10 px-8 rounded-xl font-bold uppercase tracking-wider text-[10px] shadow-lg shadow-primary/10 transition-all active:scale-95"
               onClick={() => {
@@ -357,7 +614,7 @@ export function SanitizerClient() {
         {found.length > 0 && (
           <div className="absolute right-8 bottom-24 max-w-[200px] flex flex-wrap gap-1.5 justify-end pointer-events-none opacity-40">
             {[...new Set(found)].slice(0, 5).map((word, i) => (
-              <Badge key={i} variant="outline" className="text-[8px] py-0.5 px-2 bg-background/80 border-red-200 text-red-500 font-bold uppercase">
+              <Badge key={i} variant="outline" className="text-[8px] font-black py-0.5 px-2 bg-background/80 border-red-200 text-red-500 uppercase">
                 {word}
               </Badge>
             ))}
