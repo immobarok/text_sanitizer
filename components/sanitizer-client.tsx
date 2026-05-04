@@ -118,9 +118,9 @@ export function SanitizerClient() {
                 </span>
                 Original Text
               </div>
-              <Badge variant="outline" className="font-normal text-xs">
+              {/* <Badge variant="outline" className="font-normal text-xs">
                 Instant Mode
-              </Badge>
+              </Badge> */}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
