@@ -188,11 +188,11 @@ export function SanitizerClient() {
                 </DialogContent>
               </Dialog>
 
-              <Link href="/admin">
+              {/* <Link href="/admin">
                 <Button variant="outline" size="icon" title="Admin Settings">
                   <Settings className="h-4 w-4" />
                 </Button>
-              </Link>
+              </Link> */}
             </div>
             
             {localRules.length > 0 && (
