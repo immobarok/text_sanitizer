@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { words, category = "general", severity = "MEDIUM", replacement = "****", password } = body
+    const { words, category = "general", severity = "MEDIUM", replacement = "[DASHED]", password } = body
 
     // Simple password check for database additions
     if (password !== process.env.ADMIN_PASSWORD) {

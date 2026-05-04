@@ -172,14 +172,6 @@ export function SanitizerClient() {
                         placeholder="e.g. secret" 
                         value={quickWord}
                         onChange={(e) => setQuickWord(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Replacement Word</Label>
-                      <Input 
-                        placeholder="e.g. [REDACTED]" 
-                        value={quickReplacement}
-                        onChange={(e) => setQuickReplacement(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
                       />
                     </div>

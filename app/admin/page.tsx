@@ -16,7 +16,6 @@ export default function AdminPage() {
   const [isAuthorized, setIsAuthorized] = useState(false)
   
   const [word, setWord] = useState("")
-  const [replacement, setReplacement] = useState("****")
   const [loading, setLoading] = useState(false)
   const [words, setWords] = useState<any[]>([])
   
@@ -55,7 +54,6 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           words: [word.trim()],
-          replacement: replacement.trim(),
           password: password
         }),
       })
@@ -64,7 +62,6 @@ export default function AdminPage() {
       if (data.success) {
         toast({ title: "Word Added", description: `"${word}" added to official database.` })
         setWord("")
-        setReplacement("****")
         fetchWords()
       } else {
         toast({ title: "Error", description: data.error || "Failed to add word", variant: "destructive" })
@@ -153,15 +150,6 @@ export default function AdminPage() {
                   required
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Official Replacement</Label>
-                <Input 
-                  placeholder="e.g. [CENSORED]" 
-                  value={replacement}
-                  onChange={(e) => setReplacement(e.target.value)}
-                  required
-                />
-              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Adding..." : "Add to Database"}
               </Button>
@@ -188,7 +176,6 @@ export default function AdminPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Word</TableHead>
-                    <TableHead>Replacement</TableHead>
                     <TableHead className="w-[100px]">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -203,9 +190,6 @@ export default function AdminPage() {
                     words.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell className="font-medium">{item.word}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="font-mono">{item.replacement}</Badge>
-                        </TableCell>
                         <TableCell>
                           <Button 
                             variant="ghost" 

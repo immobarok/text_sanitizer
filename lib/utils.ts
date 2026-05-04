@@ -35,7 +35,14 @@ export function sanitizeText(
     
     if (regex.test(sanitized)) {
       found.push(word)
-      sanitized = sanitized.replace(regex, replacement)
+      sanitized = sanitized.replace(regex, (match) => {
+        // Create the dashed version (e.g., google -> goo-gle)
+        const parts = []
+        for (let i = 0; i < match.length; i += 2) {
+          parts.push(match.substring(i, i + 2))
+        }
+        return parts.join('-')
+      })
     }
   }
 
